@@ -1,0 +1,34 @@
+import yfinance as yf
+from xrpl.clients import JsonRpcClient
+from xrpl.wallet import Wallet
+from xrpl.models.transactions import OracleSet
+from xrpl.transaction import submit_and_wait
+
+# 1. Fetch Southern Copper (SCCO) Price
+def get_scco_price():
+    ticker = yf.Ticker("SCCO")
+    price = ticker.fast_info['last_price']
+    return int(price * 1000000)  # Scale for XRPL precision
+
+# 2. Setup XRPL Connection
+client = JsonRpcClient("https://s.altnet.rippletest.net:51234") # Testnet
+my_wallet = Wallet.from_seed("your_seed_here")
+
+# 3. Create Oracle Transaction
+price_data = {
+    "BaseAsset": "SCCO",
+    "QuoteAsset": "XRP",
+    "AssetPrice": str(get_scco_price())
+}
+
+oracle_tx = OracleSet(
+    account=my_wallet.address,
+    provider="0x5343434F", # "SCCO" in Hex
+    asset_class="0x53544F434B", # "STOCK" in Hex
+    last_update_time=1706821200, # Current Unix Time
+    price_data_series=[price_data]
+)
+
+# 4. Submit to Ledger
+response = submit_and_wait(oracle_tx, client, my_wallet)
+print(f"Transaction Result: {response.result['meta']['TransactionResult']}")
